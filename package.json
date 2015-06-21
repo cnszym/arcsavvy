@@ -1,0 +1,14 @@
+{
+  "name": "arcsavvy",
+  "version": "0.0.0",
+  "description": "arcsavvy: incremental encrypted backups made easy!",
+  "main": "main.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "author": "cnszym@gmail.com",
+  "license": "BSD-simplified",
+  "dependencies": {
+    "underscore": "^1.8.3"
+  }
+}

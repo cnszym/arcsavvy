@@ -1,0 +1,45 @@
+arcsavvy test suite state 0:
+- description.txt describes the changes between each version
+- file1.txt is a file
+- file2.txt is another file
+
+arcsavvy test suite state 1:
+- description.txt is modified
+- file1.txt is modified
+- file2.txt is unchanged
+
+arcsavvy test suite state 2:
+- description.txt is modified
+- file1.txt is deleted
+- file2.txt is made executable
+- file3.txt is added
+
+arcsavvy test suite state 3:
+- description.txt is modified
+- file2.txt is renamed file1.txt
+
+arcsavvy test suite state 4:
+- description.txt is modified
+- a copy of file1.txt is called file2.txt
+
+arcsavvy test suite state 5:
+- description.txt is modified
+- file1.txt from state 1 is restored and called file4.txt
+- a copy of file1.txt is called file5.txt
+
+arcsavvy test suite state 6:
+- description.txt is modified
+- file1.txt is made non executable
+- file2.txt (copy of file1.txt) is modified
+- file5.txt (copy of file1.txt) is renamed file6.txt
+
+arcsavvy test suite state 7:
+- description.txt is modified
+- subdir is created with a new file in it
+- empty is created empty
+
+arcsavvy test suite state 8:
+- description.txt is modified
+- subdir is deleted
+- link-real is created
+- link-fake is created

@@ -1,0 +1,4 @@
+arcsavvy test suite state 0:
+- description.txt describes the changes between each version
+- file1.txt is a file
+- file2.txt is another file

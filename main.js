@@ -3,6 +3,8 @@ var fs = require('fs');
 var path = require('path');
 var _ = require('underscore');
 
+/***** Indexing *****/
+
 /**
 * Recursively traverse files and directories invoking the callback
 * function on each element found.
@@ -92,6 +94,79 @@ construct_index = function(file_index) {
     files: file_index,
     objects: construct_object_index(file_index)
   };
+};
+
+/***** Handling changes *****/
+
+/**
+* Dummy callback function which only print information to stdout.
+*/
+var dummy_callback = {
+  new: function(new_element) { console.log('new: '+new_element.full_name); },
+  rename: function(old_element,new_element) { console.log('rename: '+old_element.full_name+'->'+new_element.full_name); },
+  copy: function(old_element,new_element) { console.log('copy: '+old_element.full_name+'->'+new_element.full_name); },
+  modify: function(old_element,new_element) { console.log('modify: '+new_element.full_name+' ('+old_element.size+' bytes -> '+new_element.size+' bytes)'); },
+  modify_instance: function(old_element,new_element) { console.log('modify one instance: '+new_element.full_name+' ('+old_element.size+' bytes -> '+new_element.size+' bytes)'); },
+  chmod: function(old_element,new_element) { console.log('chmod: '+new_element.full_name+' ('+old_element.mode+'->'+new_element.mode+')'); },
+  unchanged: function(old_element,new_element) { console.log('no change: '+new_element.full_name); },
+  delete: function(old_element) { console.log('delete: '+old_element.full_name); },
+  delete_instance: function(old_element,new_element) { console.log('delete one instance: '+old_element.full_name); },
+};
+
+/**
+* Detect changes and launch the appropriate callback actions.
+*/
+compute_changes = function(start_index, end_file_index, end_element, callback) {
+  if( callback==undefined ) callback = dummy_callback;
+
+  var start_element = start_index.files[end_element.full_name];
+  if( start_element==undefined ) {
+    // file not found in index
+    start_element = start_index.objects[end_element.hash];
+    if( start_element==undefined ) {
+      // hash not found
+      callback.new(end_element);
+    } else {
+      // hash found
+      if( start_element.refs==1 ) {
+        start_element = start_element.files[0];
+        // if end_file_index is available, then forward detection is possible
+        // so we can directly rename the file, otherwise we will have to
+        // first make a copy of it, and delete it later
+        if( end_file_index && !_.has(end_file_index, start_element.full_name) ) {
+          // file is not present anymore
+          start_element.seen = true;
+          callback.rename(start_element,end_element);
+        } else {
+          // file is still there
+          callback.copy(start_element,end_element);
+        }
+      } else {
+        // there are multiple references, consider as new and emit a warning
+        console.log("Warning: Ambiguous rename, I consider the file as being new")
+        callback.new(end_element);
+      }
+    }
+  } else {
+    // file found
+    start_element.seen = true;
+    if( start_element.size!=end_element.size || start_element.hash!=end_element.hash ) {
+      // different hash or size
+      var start_hash = start_index.objects[start_element.hash];
+      if( start_hash.refs==1 ) {
+        callback.modify(start_element,end_element);
+      } else {
+        callback.modify_instance(start_element,end_element);
+      }
+    } else if( start_element.mode!=end_element.mode ) {
+      // different mode
+      callback.chmod(start_element,end_element);
+    } else {
+      // no change detected
+      callback.unchanged(start_element,end_element);
+    }
+  }
+  return start_index;
 };
 
 /* TODO: subdirectories */

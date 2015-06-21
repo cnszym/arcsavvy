@@ -169,6 +169,55 @@ compute_changes = function(start_index, end_file_index, end_element, callback) {
   return start_index;
 };
 
+/**
+* Compare indexes and launch the appropriate callback actions.
+* Offline = end index is already available
+* Online  = end index is computed on the fly
+*/
+compare_indexes = function(start_index, index_or_dir, callback) {
+  if( callback==undefined ) callback = dummy_callback;
+  var end_file_index;
+
+  // look for new files, renamed files and changed files
+  if( index_or_dir instanceof Object )
+  {
+    // offline mode: end index is already available
+    // iterate over end_file_index
+    end_file_index = index_or_dir;
+    _.map( _.values(end_file_index), function(end_element) {
+      start_index = compute_changes(start_index, end_file_index, end_element, callback);
+    });
+  }
+  else
+  {
+    // online mode: end index is computed on the fly
+    // recursively explore dir
+    var dir = index_or_dir;
+    end_file_index = explore_recursive(dir, function(name, type, file, index) {
+      index[name] = get_element(file, name);
+      start_index = compute_changes(start_index, undefined, index[name], callback);
+      return index;
+    }, {}, '');
+  }
+
+  // end index is now available
+  var end_index = construct_index(end_file_index);
+
+  // look for deleted files
+  _.map( _.values(start_index.files), function(start_element) {
+    if( !start_element.seen ) {
+      var end_element = end_index.objects[start_element.hash];
+      if( end_element==undefined ) {
+        callback.delete(start_element);
+      } else {
+        callback.delete_instance(start_element);
+      }
+    }
+  });
+
+  return end_index;
+};
+
 /* TODO: subdirectories */
 /* TODO: detect collisions */
 /* TODO: symlinks */

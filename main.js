@@ -115,6 +115,7 @@ var dummy_callback = {
 
 /**
 * Detect changes and launch the appropriate callback actions.
+* This is the core function of arcsavvy!
 */
 compute_changes = function(start_index, end_file_index, end_element, callback) {
   if( callback==undefined ) callback = dummy_callback;
@@ -142,9 +143,16 @@ compute_changes = function(start_index, end_file_index, end_element, callback) {
           callback.copy(start_element,end_element);
         }
       } else {
+        // FIXME: what is the appropriate behavior?
+
         // there are multiple references, consider as new and emit a warning
-        console.log("Warning: Ambiguous rename, I consider the file as being new")
-        callback.new(end_element);
+        // console.log("Warning: Ambiguous rename, I consider the file as being new")
+        // callback.new(end_element);
+
+        // there are multiple references, consider arbitrarily as a copy of first one
+        start_element = start_element.files[0];
+        console.log("Warning: Ambiguous rename, I consider the file as being copy of: "+start_element.full_name);
+        callback.copy(start_element,end_element);
       }
     }
   } else {

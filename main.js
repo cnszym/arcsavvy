@@ -110,7 +110,7 @@ var dummy_callback = {
   chmod: function(old_element,new_element) { console.log('chmod: '+new_element.full_name+' ('+old_element.mode+'->'+new_element.mode+')'); },
   unchanged: function(old_element,new_element) { console.log('no change: '+new_element.full_name); },
   delete: function(old_element) { console.log('delete: '+old_element.full_name); },
-  delete_instance: function(old_element,new_element) { console.log('delete one instance: '+old_element.full_name); },
+  delete_instance: function(old_element) { console.log('delete one instance: '+old_element.full_name); },
 };
 
 /**

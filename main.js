@@ -227,7 +227,7 @@ compare_indexes = function(start_index, index_or_dir, callback) {
   return end_index;
 };
 
-/***** Archive *****/
+/***** Archive/Check *****/
 
 /**
 * Base functions for manipulating plain obejct archives, to be extended to
@@ -269,6 +269,16 @@ var plain_object_callback = function(archive_dir, files_dir) { return {
     // FIXME: better helper function
     cp.spawnSync('cp', [snap_file,index_file]);
   },
+  listSnapshots: function() {
+    var snapshots = [];
+    _.map(fs.readdirSync(this.archive_dir), function(f) {
+      if( /^index-snapshot.*\.json$/.test(f) ) {
+        snapshots.push(f);
+      }
+    });
+    snapshots.push('index.json'); // always check index.json last
+    return snapshots;
+  },
   addObject: function(new_element) {
     if( new_element.type=='F' ) {
       var fpath = path.join(this.files_dir, new_element.full_name);
@@ -288,6 +298,24 @@ var plain_object_callback = function(archive_dir, files_dir) { return {
       // FIXME: better helper function
       cp.spawnSync('rm', [opath]);
     }
+  },
+  checkObject: function(element, deep) {
+    if( element.type=='F' ) {
+      var ofile = path.join(this.object_dir, element.hash);
+      if( !fs.existsSync(ofile) ) {
+        return 'Archive is corrupt: Missing object '+element.hash+' / '+element.full_name;
+      }
+      if( deep ) {
+        var s = get_element(ofile);
+        if( s.hash!=element.hash ) {
+          return 'Archive is corrupt: Hash mismatch for object '+element.hash+' / '+element.full_name;
+        }
+        if( s.size!=element.size ) {
+          return 'Archive is corrupt: Size mismatch for object '+element.hash+' / '+element.full_name;
+        }
+      }
+    }
+    return true; // all checks succeeded
   },
 
   // callback function
@@ -349,6 +377,30 @@ snapshot_archive = function(archive_dir, files_dir, callback) {
   // TODO: remove objects not needed anymore
 
   return new_index;
+};
+
+/**
+* Check archive.
+*/
+check_archive = function(archive_dir, deep, callback)
+{
+  if( deep==undefined ) deep=false;
+  if( callback==undefined ) callback = plain_object_callback;
+  var archive, archive_index, archive_check;
+
+  // initialize the archive and read the index
+  archive = new callback(archive_dir, undefined);
+  archive.init();
+
+  // check all snapshots
+  archive_check = { };
+  _.map( archive.listSnapshots(), function(snapshot) {
+    archive_index = archive.readIndex(snapshot);
+    archive_check[snapshot] = _.mapObject(archive_index.files, function(element, name) {
+      return archive.checkObject(element, deep);
+    });
+  });
+  return archive_check;
 };
 
 /* TODO: handle collisions */

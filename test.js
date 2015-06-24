@@ -66,4 +66,8 @@ for( var i=0; i<=nb_states; ++i ) {
     console.log(status);
     throw new Error('Archive integrity verification failed!');
   }
+
+  // restore
+  status = restore_archive(arc, 'temp/state'+i);
+  console.log(status);
 }

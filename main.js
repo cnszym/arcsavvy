@@ -227,7 +227,7 @@ compare_indexes = function(start_index, index_or_dir, callback) {
   return end_index;
 };
 
-/***** Archive/Check *****/
+/***** Archive/Check/Restore *****/
 
 /**
 * Base functions for manipulating plain obejct archives, to be extended to
@@ -318,6 +318,44 @@ var plain_object_callback = function(archive_dir, files_dir) { return {
     return true; // all checks succeeded
   },
 
+  // restore functions
+  restoreFile: function(element) {
+    var fpath = path.join(this.files_dir, element.full_name);
+    var opath = path.join(this.object_dir, element.hash);
+    cp.spawnSync('cp', [opath,fpath]);
+  },
+  restoreDirectory: function(element) {
+    var fpath = path.join(this.files_dir, element.full_name);
+    fs.mkdirSync(fpath);
+  },
+  restoreMode: function(element) {
+    var fpath = path.join(this.files_dir, element.full_name);
+    fs.chmodSync(fpath, element.mode);
+  },
+  restore: function(archive_index) {
+    // create the target directory
+    if( fs.existsSync(this.files_dir) ) {
+      throw new Error('Target directory already exists, will not overwrite: '+files_dir);
+    }
+    fs.mkdirSync(this.files_dir);
+
+    // restore the archive contents
+    var status = { };
+    for( var o in archive_index.files ) {
+      var element = archive_index.files[o];
+      if( element.type=='F' ) {
+        this.restoreFile(element);
+      } else if( element.type=='D' ) {
+        this.restoreDirectory(element);
+      } else {
+        throw new Error("unsupported type: "+element.type);
+      }
+      this.restoreMode(element);
+      status[element.full_name] = true;
+    }
+    return status;
+  },
+
   // callback function
   new: function(new_element) {
     // add the new object
@@ -402,6 +440,26 @@ check_archive = function(archive_dir, deep, callback)
   });
   return archive_check;
 };
+
+/**
+* Restore the archive from scratch
+*/
+restore_archive = function(archive_dir, target_dir, index_name, callback)
+{
+  if( callback==undefined ) callback = plain_object_callback;
+  var archive, archive_index, status;
+
+  // initialize the archive and read the index
+  archive = new callback(archive_dir, target_dir);
+  archive.init();
+  archive_index = archive.readIndex(index_name);
+
+  // restore the archive
+  status = archive.restore(archive_index);
+
+  return status;
+};
+
 
 /* TODO: handle collisions */
 /* TODO: forget history */

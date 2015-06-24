@@ -21,7 +21,7 @@ explore_recursive = function(dir, callback, context, base) {
     } else if( s.isFile() ) {
       context = callback(n, 'F', f, context);
     } else {
-      // FIXME: handle symbolic links and special files
+      // TODO: handle symbolic links and special files
       console.log("Warning: File type not supported, ignoring: "+n);
     }
   });
@@ -119,6 +119,7 @@ var dummy_callback = {
 */
 compute_changes = function(start_index, end_file_index, end_element, callback) {
   if( callback==undefined ) callback = dummy_callback;
+  if( start_index.seen==undefined ) start_index.seen = {};
 
   var start_element = start_index.files[end_element.full_name];
   if( start_element==undefined ) {
@@ -136,7 +137,7 @@ compute_changes = function(start_index, end_file_index, end_element, callback) {
         // first make a copy of it, and delete it later
         if( end_file_index && !_.has(end_file_index, start_element.full_name) ) {
           // file is not present anymore
-          start_element.seen = true;
+          start_index.seen[start_element.hash] = true;
           callback.rename(start_element,end_element);
         } else {
           // file is still there
@@ -211,9 +212,9 @@ compare_indexes = function(start_index, index_or_dir, callback) {
   // end index is now available
   var end_index = construct_index(end_file_index);
 
-  // look for deleted files
+  // look for deleted (= unseen) files
   _.map( _.values(start_index.files), function(start_element) {
-    if( !start_element.seen ) {
+    if( !_.has(start_index.seen, start_element.hash) ) {
       var end_element = end_index.objects[start_element.hash];
       if( end_element==undefined ) {
         callback.delete(start_element);
@@ -226,7 +227,139 @@ compare_indexes = function(start_index, index_or_dir, callback) {
   return end_index;
 };
 
+/***** Archive *****/
+
+/**
+* Base functions for manipulating plain obejct archives, to be extended to
+* support more elaborate archive types: with compression, packing, encryption,
+* remote access, etc.
+* This is the key class of arcsavvy.
+*/
+var plain_object_callback = function(archive_dir, files_dir) { return {
+  // attributes
+  archive_dir: archive_dir,
+  object_dir: path.join(archive_dir, 'objects'),
+  files_dir: files_dir,
+
+  // archive manipulation
+  init: function(index) {
+    // create missing directories
+    if( !fs.existsSync(this.archive_dir) ) {
+      fs.mkdirSync(this.archive_dir);
+    }
+    if( !fs.existsSync(this.object_dir) ) {
+      fs.mkdirSync(this.object_dir);
+    }
+  },
+  readIndex: function(index) {
+    if( index==undefined ) index='index.json';
+    var index_file = path.join(this.archive_dir, index);
+    if( fs.existsSync(index_file) ) {
+      file_index = JSON.parse(fs.readFileSync(index_file));
+    } else {
+      file_index = { };
+    }
+    return construct_index(file_index);
+  },
+  pushSnapshot: function(new_index) {
+    var snap = (new Date()).toJSON();
+    var snap_file = path.join(this.archive_dir,'index-snapshot-'+snap+'.json');
+    var index_file = path.join(this.archive_dir,'index.json');
+    fs.writeFileSync(snap_file, JSON.stringify(new_index.files), 'utf-8');
+    // FIXME: better helper function
+    cp.spawnSync('cp', [snap_file,index_file]);
+  },
+  addObject: function(new_element) {
+    if( new_element.type=='F' ) {
+      var fpath = path.join(this.files_dir, new_element.full_name);
+      var opath = path.join(this.object_dir, new_element.hash);
+      if( fs.existsSync(opath) ) {
+        // FIXME: handle collisions
+        console.log('Collision detected, ignoring file: '+new_element.full_name+' '+new_element.hash);
+      } else {
+        // FIXME: better helper function
+        cp.spawnSync('cp', [fpath,opath]);
+      }
+    }
+  },
+  rmObject: function(old_element) {
+    if( old_element.type=='F' ) {
+      var opath = path.join(this.object_dir, old_element.hash);
+      // FIXME: better helper function
+      cp.spawnSync('rm', [opath]);
+    }
+  },
+
+  // callback function
+  new: function(new_element) {
+    // add the new object
+    this.addObject(new_element);
+  },
+  rename: function(old_element,new_element) {
+    // no action required: object is already present and still in use
+    // TODO: possible full check for changes
+  },
+  copy: function(old_element,new_element) {
+    // no action required: the copy file will use the already existing object
+    // TODO: possible full check for changes
+  },
+  modify: function(old_element,new_element) {
+    // add the modified version to the repository
+    this.addObject(new_element);
+  },
+  modify_instance: function(old_element,new_element) {
+    // add the modified version to the repository
+    this.addObject(new_element);
+  },
+  chmod: function(old_element,new_element) {
+    // no action required: object is already present and still in use
+    // TODO: possible full check for changes
+  },
+  unchanged: function(old_element,new_element) {
+    // nothing to do: element has not changed
+    // TODO: possible full check for changes
+  },
+  delete: function(old_element) {
+    // no action required: object is kept and will be removed later if nedded
+  },
+  delete_instance: function(old_element) {
+    // no action required: object is still in use
+  },
+};};
+
+/**
+* Add a new snapshot to the archive repository using the designated callback
+* manipulation functions.
+*/
+snapshot_archive = function(archive_dir, files_dir, callback) {
+  if( callback==undefined ) callback = plain_object_callback;
+  var archive, archive_index, new_index;
+
+  // initialize the archive and read the index
+  archive = new callback(archive_dir, files_dir);
+  archive.init();
+  archive_index = archive.readIndex();
+
+  // Take a snapshot:
+  //   1. update the archive with new objects
+  //   2. push the latest snapshot
+  //   3. remove objects not needed anymore
+  new_index = compare_indexes(archive_index, files_dir, archive);
+  archive.pushSnapshot(new_index);
+  // TODO: remove objects not needed anymore
+
+  return new_index;
+};
+
+/* TODO: handle collisions */
+/* TODO: forget history */
+/* TODO: unit tests */
 /* TODO: subdirectories */
+/* TODO: command line tool */
+/* TODO: fail on error/warning/... */
+/* TODO: npm package */
+/* TODO: documentation */
+/* TODO: split hashes for large files */
 /* TODO: detect collisions */
 /* TODO: symlinks */
 /* TODO: archive fast mode (using hashes) */
@@ -238,3 +371,4 @@ compare_indexes = function(start_index, index_or_dir, callback) {
 /* TODO: archive compression */
 /* TODO: archive encryption */
 /* TODO: archive to remote via SSH */
+/* TODO: archive manipulation (e.g. shell?) */

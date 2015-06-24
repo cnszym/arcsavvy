@@ -1,4 +1,6 @@
 var arcsavvy = require('./main.js');
+var cp = require('child_process');
+var fs = require('fs');
 var nb_states = 8;
 
 explore_recursive('tests', function(n,t,f,c) {
@@ -37,3 +39,19 @@ for( var i=0; i<nb_states; ++i ) {
   end_index = compare_indexes(start,e);
 }
 console.log(end_index);
+
+// test cycle: archive->check->restore->diff
+// clean the temp directory
+cp.spawnSync('rm',['-rf','temp']);
+cp.spawnSync('mkdir', ['temp']);
+
+for( var i=0; i<=nb_states; ++i ) {
+  var s = 'tests/state'+i, arc = 'temp/archive', status;
+
+  // create an archive snapshot
+  console.log('***** creating archive snapshot '+s+' *****');
+  snapshot_archive(arc, s);
+  explore_recursive(arc, function(n,t,f,c) {
+    console.log(t,n);
+  });
+}

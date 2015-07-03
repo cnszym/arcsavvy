@@ -22,7 +22,7 @@ explore_recursive = function(dir, callback, context, base) {
       context = callback(n, 'F', f, context);
     } else {
       // TODO: handle symbolic links and special files
-      console.log("Warning: File type not supported, ignoring: "+n);
+      console.error("Error: File type not supported, ignoring: "+n);
     }
   });
   return context;
@@ -102,15 +102,15 @@ construct_index = function(file_index) {
 * Dummy callback function which only print information to stdout.
 */
 var dummy_callback = {
-  new: function(new_element) { console.log('new: '+new_element.full_name); },
-  rename: function(old_element,new_element) { console.log('rename: '+old_element.full_name+'->'+new_element.full_name); },
-  copy: function(old_element,new_element) { console.log('copy: '+old_element.full_name+'->'+new_element.full_name); },
-  modify: function(old_element,new_element) { console.log('modify: '+new_element.full_name+' ('+old_element.size+' bytes -> '+new_element.size+' bytes)'); },
-  modify_instance: function(old_element,new_element) { console.log('modify one instance: '+new_element.full_name+' ('+old_element.size+' bytes -> '+new_element.size+' bytes)'); },
-  chmod: function(old_element,new_element) { console.log('chmod: '+new_element.full_name+' ('+old_element.mode+'->'+new_element.mode+')'); },
-  unchanged: function(old_element,new_element) { console.log('no change: '+new_element.full_name); },
-  delete: function(old_element) { console.log('delete: '+old_element.full_name); },
-  delete_instance: function(old_element) { console.log('delete one instance: '+old_element.full_name); },
+  new: function(new_element) { console.info('new: '+new_element.full_name); },
+  rename: function(old_element,new_element) { console.info('rename: '+old_element.full_name+'->'+new_element.full_name); },
+  copy: function(old_element,new_element) { console.info('copy: '+old_element.full_name+'->'+new_element.full_name); },
+  modify: function(old_element,new_element) { console.info('modify: '+new_element.full_name+' ('+old_element.size+' bytes -> '+new_element.size+' bytes)'); },
+  modify_instance: function(old_element,new_element) { console.info('modify one instance: '+new_element.full_name+' ('+old_element.size+' bytes -> '+new_element.size+' bytes)'); },
+  chmod: function(old_element,new_element) { console.info('chmod: '+new_element.full_name+' ('+old_element.mode+'->'+new_element.mode+')'); },
+  unchanged: function(old_element,new_element) { console.info('no change: '+new_element.full_name); },
+  delete: function(old_element) { console.info('delete: '+old_element.full_name); },
+  delete_instance: function(old_element) { console.info('delete one instance: '+old_element.full_name); },
 };
 
 /**
@@ -152,7 +152,7 @@ compute_changes = function(start_index, end_file_index, end_element, callback) {
 
         // there are multiple references, consider arbitrarily as a copy of first one
         start_element = start_element.files[0];
-        console.log("Warning: Ambiguous rename, I consider the file as being copy of: "+start_element.full_name);
+        console.warn("Warning: Ambiguous copy, I consider the file as being copy of: "+start_element.full_name);
         callback.copy(start_element,end_element);
       }
     }
@@ -285,7 +285,7 @@ var plain_object_callback = function(archive_dir, files_dir) { return {
       var opath = path.join(this.object_dir, new_element.hash);
       if( fs.existsSync(opath) ) {
         // FIXME: handle collisions
-        console.log('Collision detected, ignoring file: '+new_element.full_name+' '+new_element.hash);
+        console.error('Error: Collision detected, ignoring file: '+new_element.full_name+' '+new_element.hash);
       } else {
         // FIXME: better helper function
         cp.spawnSync('cp', [fpath,opath]);

@@ -20,9 +20,10 @@ explore_recursive = function(dir, callback, context, base) {
       explore_recursive(f, callback, context, n);
     } else if( s.isFile() ) {
       context = callback(n, 'F', f, context);
+    } else if( s.isSymbolicLink() ) {
+      context = callback(n, 'L', f, context);
     } else {
-      // TODO: handle symbolic links and special files
-      console.error("Error: File type not supported, ignoring: "+n);
+      throw new Error('File type not supported, ignoring: '+f);
     }
   });
   return context;
@@ -51,6 +52,10 @@ get_element = function(file, full_name) {
 
     // size is only computed for files
     ret.size = s.size;
+  }
+  if( ret.type=='L' ) {
+    // destination is computed only for symbolic links
+    ret.destination = fs.readlinkSync(file);
   }
   return ret;
 };
@@ -120,6 +125,7 @@ var dummy_callback = {
 * This is the core function of arcsavvy!
 */
 compute_changes = function(start_index, end_file_index, end_element, callback) {
+  // TODO: function to refactor...
   if( callback==undefined ) callback = dummy_callback;
   if( start_index.seen==undefined ) start_index.seen = {};
 
@@ -176,22 +182,61 @@ compute_changes = function(start_index, end_file_index, end_element, callback) {
       }
     }
   } else {
-    // file found
+    // file found in start index: modified?
     start_element.seen = true;
-    if( start_element.size!=end_element.size || start_element.hash!=end_element.hash ) {
-      // different hash or size
-      var start_hash = start_index.objects[start_element.hash];
-      if( start_hash.refs==1 ) {
-        callback.modify(start_element,end_element);
+
+    if( start_element.type!=end_element.type ) {
+      // file types are different:
+      if( start_element.type=='L' && end_element.type=='F' ) {
+        callback.delete(start_element);
+        callback.new(end_element);
+      } else if( start_element.type=='F' && end_element.type=='L' ) {
+        callback.delete(start_element);
+        callback.new(end_element);
       } else {
-        callback.modify_instance(start_element,end_element);
+        // FIXME
+        throw new Error('unsupported type change '+start_element.type+' to '+end_element.type);
       }
-    } else if( start_element.mode!=end_element.mode ) {
-      // different mode
-      callback.chmod(start_element,end_element);
+    } else if( end_element.type=='F' ) {
+      // detect file changes
+      if( start_element.size!=end_element.size || start_element.hash!=end_element.hash ) {
+        // different hash or size
+        var start_hash = start_index.objects[start_element.hash];
+        if( start_hash.refs==1 ) {
+          callback.modify(start_element,end_element);
+        } else {
+          callback.modify_instance(start_element,end_element);
+        }
+      } else if( start_element.mode!=end_element.mode ) {
+        // different mode
+        callback.chmod(start_element,end_element);
+      } else {
+        // no change detected
+        callback.unchanged(start_element,end_element);
+      }
+    } else if( end_element.type=='D' ) {
+      // detect directory changes
+      if( start_element.mode!=end_element.mode ) {
+        // different mode
+        callback.chmod(start_element,end_element);
+      } else {
+        // no change detected
+        callback.unchanged(start_element,end_element);
+      }
+    } else if( end_element.type=='L' ) {
+      // detect symlink changes
+      if( start_element.destination!=end_element.destination ) {
+        callback.delete(start_element);
+        callback.new(end_element);
+      } else if( start_element.mode!=end_element.mode ) {
+        // different mode
+        callback.chmod(start_element,end_element);
+      } else {
+        // no change detected
+        callback.unchanged(start_element,end_element);
+      }
     } else {
-      // no change detected
-      callback.unchanged(start_element,end_element);
+      throw new Error('unsupported type '+end_element.type+' for file: '+end_element.full_name);
     }
   }
   return start_index;
@@ -347,9 +392,17 @@ var plain_object_callback = function(archive_dir, files_dir) { return {
     var fpath = path.join(this.files_dir, element.full_name);
     fs.mkdirSync(fpath);
   },
+  restoreLink: function(element) {
+    var fpath = path.join(this.files_dir, element.full_name);
+    cp.spawnSync('ln', ['-s', element.destination, fpath]);
+  },
   restoreMode: function(element) {
     var fpath = path.join(this.files_dir, element.full_name);
-    fs.chmodSync(fpath, element.mode);
+    if( element.type=='L') {
+      fs.lchmodSync(fpath, element.mode);
+    } else {
+      fs.chmodSync(fpath, element.mode);
+    }
   },
   restore: function(archive_index) {
     // create the target directory
@@ -366,6 +419,8 @@ var plain_object_callback = function(archive_dir, files_dir) { return {
         this.restoreFile(element);
       } else if( element.type=='D' ) {
         this.restoreDirectory(element);
+      } else if( element.type=='L' ) {
+        this.restoreLink(element);
       } else {
         throw new Error("unsupported type: "+element.type);
       }
@@ -480,6 +535,7 @@ restore_archive = function(archive_dir, target_dir, index_name, callback)
 };
 
 
+/* TODO: test special cases of type changes) */ 
 /* TODO: handle collisions */
 /* TODO: forget history */
 /* TODO: unit tests */
@@ -490,9 +546,9 @@ restore_archive = function(archive_dir, target_dir, index_name, callback)
 /* TODO: documentation */
 /* TODO: split hashes for large files */
 /* TODO: detect collisions */
-/* TODO: symlinks */
 /* TODO: archive fast mode (using hashes) */
 /* TODO: archive full mode */
+/* TODO: archive full mode (local copy of remote) */
 /* TODO: check archive */
 /* TODO: restore archive */
 /* TODO: archive snapshots */

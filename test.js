@@ -4,6 +4,14 @@ var fs = require('fs');
 var _ = require('underscore');
 var nb_states = 8;
 
+// available tests:
+// - index1
+// - index2
+// - changes1
+// - changes2
+// - changes3
+// - loop
+
 if( process.argv[2]=='index1' || process.argv[2]==undefined || process.argv[2]=='all' ) {
 // test indexing exploration functions
 console.log('TEST explore_recursive');
@@ -16,6 +24,7 @@ console.log(get_element('./tests/state0/description.txt', 'description.txt'));
 console.log(get_element('./tests/state2/file2.txt', 'file2.txt'));
 console.log(get_element('./tests/state7/subdir', 'subdir'));
 console.log(get_element('./tests/state8/real-link', 'real-link'));
+console.log(get_element('./tests/state8/fake-link', 'fake-link'));
 }
 
 if( process.argv[2]=='index2' || process.argv[2]==undefined || process.argv[2]=='all' ) {
@@ -117,6 +126,7 @@ for( var i=0; i<=nb_states; ++i ) {
   } else {
     console.log('KO');
     console.log(diff.stdout.toString());
+    console.log(diff.stderr.toString());
   }
 }
 }

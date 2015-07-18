@@ -122,14 +122,15 @@ compute_changes = function(start_index, end_file_index, end_element, callback) {
   if( start_index.seen==undefined ) start_index.seen = {};
 
   var start_element = start_index.files[end_element.full_name];
-    // not found in end index
   if( end_file_index && end_file_index[end_element.full_name]==undefined ) {
+    // not found in end index: deleted or renamed?
     var end_index = construct_index(end_file_index);
     var end_element2 = end_index.objects[end_element.hash];
     if( end_element2==undefined ) {
-      // hash not found
+      // hash not found: deleted
       callback.delete(end_element);
     } else {
+      // hash found: renamed
       if( end_element2.refs==1 ) {
         callback.rename(end_element,end_element2.files[0]);
       } else {
@@ -138,28 +139,29 @@ compute_changes = function(start_index, end_file_index, end_element, callback) {
       }
     }
   } else if( start_element==undefined ) {
-    // file not found in index
+    // file not found in start index: new, renamed or copied?
     start_element = start_index.objects[end_element.hash];
     if( start_element==undefined ) {
-      // hash not found
+      // hash not found: new
       callback.new(end_element);
     } else {
-      // hash found
+      // hash found: renamed or copied?
       if( start_element.refs==1 ) {
         start_element = start_element.files[0];
         // if end_file_index is available, then forward detection is possible
         // so we can directly rename the file, otherwise we will have to
         // first make a copy of it, and delete it later
         if( end_file_index && !_.has(end_file_index, start_element.full_name) ) {
-          // file is not present anymore
+          // file is not present anymore: renamed
           start_index.seen[start_element.hash] = true;
           callback.rename(start_element,end_element);
         } else {
-          // file is still there
+          // file is still there: copied
           callback.copy(start_element,end_element);
         }
       } else {
         // FIXME: what is the appropriate behavior?
+        // FIXME: can it be a rename? can end_file_index help us find out?
 
         // there are multiple references, consider as new and emit a warning
         // console.log("Warning: Ambiguous rename, I consider the file as being new")

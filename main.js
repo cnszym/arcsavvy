@@ -34,23 +34,25 @@ explore_recursive = function(dir, callback, context, base) {
 get_element = function(file, full_name) {
   if( full_name==undefined ) full_name = file;
   var s = fs.lstatSync(file), hash;
-  if( s.isFile() ) {
+  var ret = {
+    full_name: full_name,
+    base_name: path.basename(file),
+    type: (s.isDirectory()?'D':(s.isSymbolicLink()?'L':(s.isFile()?'F':'O'))),
+    mode: s.mode,
+  };
+  if( ret.type=='F' ) {
     // hashes are only computed for files
     // FIXME: make a better helper function
     var h = cp.spawnSync('md5',['-r',file]);
     if( h.status!=0 ) {
       throw new Error(file+': '+h.error);
     }
-    hash = String(h.stdout).split(' ')[0];
+    ret.hash = String(h.stdout).split(' ')[0];
+
+    // size is only computed for files
+    ret.size = s.size;
   }
-  return {
-    full_name: full_name,
-    base_name: path.basename(file),
-    type: (s.isDirectory()?'D':(s.isSymbolicLink()?'L':(s.isFile()?'F':'O'))),
-    size: s.size,
-    mode: s.mode,
-    hash: hash,
-  };
+  return ret;
 };
 
 /**

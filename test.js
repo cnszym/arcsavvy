@@ -48,13 +48,15 @@ if( process.argv[2]=='changes2' || process.argv[2]==undefined || process.argv[2]
 // test change detection for all files in offline mode
 console.log('TEST compute_changes (all offline)');
 console.log("===== tracking all files (offline mode) =====")
+var end_index;
 for( var i=0; i<nb_states; ++i ) {
   var s = 'tests/state'+i, e = 'tests/state'+(i+1);
   console.log('***** '+s+' -> '+e+' *****');
   var start = construct_index(construct_file_index(s,'')),
       end = construct_file_index(e,'');
-  compare_indexes(start,end);
+  end_index = compare_indexes(start,end);
 }
+console.log(end_index);
 }
 
 if( process.argv[2]=='changes3' || process.argv[2]==undefined || process.argv[2]=='all' ) {

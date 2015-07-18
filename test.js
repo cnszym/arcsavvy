@@ -11,7 +11,11 @@ explore_recursive('tests', function(n,t,f,c) {
   console.log(t,n);
 });
 
-console.log(get_element('./tests/state0/description.txt', 'state0/description.txt'));
+console.log('TEST get_element');
+console.log(get_element('./tests/state0/description.txt', 'description.txt'));
+console.log(get_element('./tests/state2/file2.txt', 'file2.txt'));
+console.log(get_element('./tests/state7/subdir', 'subdir'));
+console.log(get_element('./tests/state8/real-link', 'real-link'));
 }
 
 if( process.argv[2]=='index2' || process.argv[2]==undefined || process.argv[2]=='all' ) {

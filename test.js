@@ -74,14 +74,15 @@ console.log(end_index);
 }
 
 if( process.argv[2]=='loop' || process.argv[2]==undefined || process.argv[2]=='all' ) {
-// test cycle: archive->check->restore
+// test cycle: archive->check->restore->diff
 // clean the temp directory
 cp.spawnSync('rm',['-rf','temp']);
 cp.spawnSync('mkdir', ['temp']);
 
-console.log('TEST snapshot_archive/check_archive/restore_archive');
+console.log('TEST snapshot_archive/check_archive/restore_archive/diff');
 for( var i=0; i<=nb_states; ++i ) {
-  var s = 'tests/state'+i, arc = 'temp/archive', status, status_success;
+  var s = 'tests/state'+i, r = 'temp/state'+i,
+    arc = 'temp/archive', status, status_success;
 
   // create an archive snapshot
   console.log('***** creating archive snapshot '+s+' *****');
@@ -102,7 +103,20 @@ for( var i=0; i<=nb_states; ++i ) {
   }
 
   // restore
-  status = restore_archive(arc, 'temp/state'+i);
+  status = restore_archive(arc, r);
   console.log(status);
+}
+
+// diff
+for( var i=0; i<=nb_states; ++i ) {
+  var s = 'tests/state'+i, r = 'temp/state'+i;
+  console.log('***** diff '+s+' -> '+r+' *****');
+  var diff = cp.spawnSync('diff', ['-r',s,r]);
+  if( diff.status==0 ) {
+    console.log('OK');
+  } else {
+    console.log('KO');
+    console.log(diff.stdout.toString());
+  }
 }
 }

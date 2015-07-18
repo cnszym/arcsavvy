@@ -122,7 +122,22 @@ compute_changes = function(start_index, end_file_index, end_element, callback) {
   if( start_index.seen==undefined ) start_index.seen = {};
 
   var start_element = start_index.files[end_element.full_name];
-  if( start_element==undefined ) {
+    // not found in end index
+  if( end_file_index && end_file_index[end_element.full_name]==undefined ) {
+    var end_index = construct_index(end_file_index);
+    var end_element2 = end_index.objects[end_element.hash];
+    if( end_element2==undefined ) {
+      // hash not found
+      callback.delete(end_element);
+    } else {
+      if( end_element2.refs==1 ) {
+        callback.rename(end_element,end_element2.files[0]);
+      } else {
+        console.warn("Warning: Ambiguous rename, I consider the file as being copy of: "+end_element2.files[0].full_name);
+        callback.rename(end_element,end_element2.files[0]);
+      }
+    }
+  } else if( start_element==undefined ) {
     // file not found in index
     start_element = start_index.objects[end_element.hash];
     if( start_element==undefined ) {

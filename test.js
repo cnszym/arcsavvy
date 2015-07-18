@@ -2,7 +2,7 @@ var arcsavvy = require('./main.js');
 var cp = require('child_process');
 var fs = require('fs');
 var _ = require('underscore');
-var nb_states = 8;
+var nb_states = 9;
 
 // available tests:
 // - index1

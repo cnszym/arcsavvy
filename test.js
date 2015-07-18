@@ -27,14 +27,19 @@ console.log(construct_index(construct_file_index('./tests/state8')));
 if( process.argv[2]=='changes1' || process.argv[2]==undefined || process.argv[2]=='all' ) {
 // test change detection for one file
 console.log('TEST compute_changes (one file)');
-console.log("===== tracking only file2.txt =====")
+var fname = 'file2.txt';
+console.log('===== tracking only '+fname+' =====')
 for( var i=0; i<nb_states; ++i ) {
   var s = 'tests/state'+i, e = 'tests/state'+(i+1);
   console.log('***** '+s+' -> '+e+' *****');
   var start = construct_index(construct_file_index(s,'')),
       end = construct_file_index(e,'');
-  if( end['file2.txt'] ) {
-    compute_changes(start, end, end['file2.txt']);
+  if( end[fname] ) {
+    compute_changes(start, end, end[fname]);
+  } else if( start.files[fname] ) {
+    compute_changes(start, end, start.files[fname]);
+  } else {
+    console.log('not present at all: '+fname)
   }
 }
 }
